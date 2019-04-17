@@ -140,12 +140,12 @@ def differential_recombination(parents, F, prob_crx):
 
     order = (np.random.permutation(len(parents))).astype(int).tolist()
 
-    p1 = parents[order[0]][1]
-    p2 = parents[order[1]][1]
-    p3 = parents[order[2]][1]
-    p4 = parents[order[3]][1]
+    p1 = parents[order[0]]
+    p2 = parents[order[1]]
+    p3 = parents[order[2]]
+    p4 = parents[order[3]]
 
-    c = uniform_crossover(p1 + F * (p2 - p3), p4, prob_crx)
+    c = uniform_crossover(p1[1] + F * (p2[1] - p3[1]), p4[1], prob_crx)
 
     # bounce back if you want weights to be between bounds
 
@@ -273,17 +273,19 @@ def main():
     # main loop of evolution
     for gen in range(1, generations + 1):
         sample = random_combination(population, tournament_size)
-        new_weights, target = differential_recombination(sample, scale_factor, p_crx)
+        new_weights, parent_crx = differential_recombination(sample, scale_factor, p_crx)
 
         child = [(0, new_weights)]
         child = evaluate(child, train_loader, criterion)
 
-        # replace loser in population with child
-        remove_idx = [i for i in range(len(population))
-                      if np.all(population[i][1] == target)][0]
+        if child[0] >= parent_crx[0]:
+            # replace the crossover parent with child if child has better fitness
+            # replace loser in population with child
+            remove_idx = [i for i in range(len(population))
+                          if np.all(population[i][1] == parent_crx[1])][0]
+            population.pop(remove_idx)
+            population += child
 
-        population.pop(remove_idx)
-        population += child
         if gen % report_freq == 0:
             elite_idx = np.argmax([x[0] for x in population])
             logging.info('train acc %04d %f', gen, population[elite_idx][0])
