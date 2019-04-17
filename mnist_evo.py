@@ -128,12 +128,12 @@ def evaluate(pop, train_queue, criterion):
 
             batch_counter += 1
             if batch_counter > n_batch:
-                # reset counter
-                batch_counter = 0
-                indv_counter += 1
                 # record performance
                 acc = 100. * correct / total
                 pop_eval.append((acc, pop[indv_counter][1]))
+                # reset counter
+                batch_counter = 0
+                indv_counter += 1
 
             if not (len(pop_eval) < len(pop)):
                 break
@@ -176,7 +176,7 @@ def main():
     # just for getting the number of trainable parameters
     model = Net()
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logging.info("param size = %fMB", n_params)
+    logging.info("param size = %d", n_params)
     del model
 
     criterion = nn.CrossEntropyLoss()
