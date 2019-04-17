@@ -2,6 +2,7 @@
 
 results/
 ipynb/
+.ipynb
 *.pdf
 *.xlsx
 
