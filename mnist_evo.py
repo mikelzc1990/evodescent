@@ -27,7 +27,7 @@ parser.add_argument('--p_mut', type=float, default=0.1, help='probability for mu
 parser.add_argument('--eta_m', type=float, default=30.0, help='polynomial mutation parameter')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 parser.add_argument('--save', type=str, default='EXP', help='experiment name')
-parser.add_argument('--epochs', type=int, default=350, help='num of training epochs')
+parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
 
 args = parser.parse_args()
 
@@ -307,7 +307,8 @@ def main():
         if gen % report_freq == 0:
             elite_idx = np.argmax([x[0] for x in population])
             logging.info('train acc %04d %f', gen, population[elite_idx][0])
-            infer(population[elite_idx], test_loader, criterion)
+
+        infer(population[elite_idx], test_loader, criterion)
 
 
 if __name__ == '__main__':
