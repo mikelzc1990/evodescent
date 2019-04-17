@@ -224,3 +224,7 @@ def main():
                                            population[elite_idx][0],
                                            population[elite_idx][-1]))
 
+
+if __name__ == '__main__':
+    main()
+
