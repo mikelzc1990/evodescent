@@ -28,10 +28,11 @@ parser.add_argument('--tour_size', type=int, default=10, help='tournament size')
 parser.add_argument('--p_mut', type=float, default=0.1, help='probability for mutation')
 parser.add_argument('--eta_m', type=float, default=30.0, help='polynomial mutation parameter')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
+parser.add_argument('--save', type=str, default='EXP', help='experiment name')
 
 args = parser.parse_args()
 
-args.save = 'train-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
+args.save = 'MNIST-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save)
 
 # prepare hyper-parameters
