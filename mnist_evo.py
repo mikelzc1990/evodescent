@@ -190,7 +190,8 @@ def main():
 
     # evaluation
     population = evaluate(population, train_loader, criterion)
-
+    print(population)
+    1/0
     elite_idx = np.argmin([x[0] for x in population])
     print('train %03d %e %e %f' % (0, p_mut,
                                    population[elite_idx][0],
