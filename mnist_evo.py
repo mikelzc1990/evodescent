@@ -113,6 +113,8 @@ def evaluate(pop, train_queue, criterion):
     pop_eval, indv_counter, batch_counter = [], 0, 0
     with torch.no_grad():
         for step, (inputs, targets) in enumerate(train_queue):
+            print('indv id: {}'.format(indv_counter))
+            print('batch id: {}'.format(batch_counter))
             inputs, targets = inputs.to(device), targets.to(device)
             # when we move on to next individual in population
             if batch_counter == 0:
