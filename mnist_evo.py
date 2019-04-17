@@ -308,7 +308,7 @@ def main():
             elite_idx = np.argmax([x[0] for x in population])
             logging.info('train acc %04d %f', gen, population[elite_idx][0])
 
-        infer(population[elite_idx], test_loader, criterion)
+    infer(population[elite_idx], test_loader, criterion)
 
 
 if __name__ == '__main__':
