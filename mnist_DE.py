@@ -18,15 +18,15 @@ import numpy as np
 import utils
 
 
-parser = argparse.ArgumentParser(description='PyTorch Evolutionary Deep CNN weights training')
+parser = argparse.ArgumentParser(description='PyTorch DE Deep CNN weights training')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
-parser.add_argument('--init_channels', type=int, default=64, help='num of init channels')
+parser.add_argument('--init_channels', type=int, default=8, help='num of init channels')
 parser.add_argument('--pop_size', type=int, default=20, help='population size')
-parser.add_argument('--tour_size', type=int, default=5, help='tournament size')
-parser.add_argument('--p_mut', type=float, default=0.1, help='probability for mutation')
-parser.add_argument('--eta_m', type=float, default=30.0, help='polynomial mutation parameter')
+parser.add_argument('--tour_size', type=int, default=4, help='tournament size')
+parser.add_argument('--p_crx', type=float, default=0.9, help='probability for crossover')
+parser.add_argument('--scale_factor', type=float, default=0.75, help='scaling factor F for DE')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
-parser.add_argument('--save', type=str, default='EXP', help='experiment name')
+parser.add_argument('--save', type=str, default='DE', help='experiment name')
 parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
 
 args = parser.parse_args()
@@ -39,8 +39,8 @@ device = 'cuda'
 seed = args.seed
 population_size = args.pop_size
 tournament_size = args.tour_size
-p_mut = args.p_mut
-eta_m = args.eta_m
+p_crx = args.p_crx
+scale_factor = args.scale_factor
 batch_size = args.batch_size
 # calculate number of batches for each individual
 n_batch = int(50000 / population_size / batch_size)
@@ -59,7 +59,7 @@ logging.getLogger().addHandler(fh)
 
 
 class Net(nn.Module):
-    def __init__(self, init_channels=8):
+    def __init__(self, init_channels=args.init_channels):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=1,
                                out_channels=init_channels,
@@ -121,56 +121,35 @@ def create_model(params_to_load):
     return model
 
 
-def polynomial_mutation(X, prob_mut=0.1, eta_mut=30):
-    # dynamic bound since the actual bounds for weights are unknown
-    # let's assume each mutation cannot mutate the weight beyond +/-20% from current value
-    # print(X)
-    lb = np.array([0.8 * x if x > 0 else 1.2 * x for x in X])
-    ub = np.array([1.2 * x if x > 0 else 0.8 * x for x in X])
+def uniform_crossover(p, q, prob_crx):
+    c = np.full(p.shape, np.nan)
 
-    Y = np.full(X.shape, np.inf)
+    for i in range(p.shape[0]):
+        if np.random.rand() <= prob_crx:
+            c[i] = p[i]
+        else:
+            c[i] = q[i]
 
-    do_mutation = np.random.rand(X.shape[0]) < prob_mut
+    return c
 
-    Y[:] = X
 
-    xl = lb[do_mutation]
-    xu = ub[do_mutation]
+def differential_recombination(parents, F, prob_crx):
+    # child = parent1 + F * (parent2 - parent3)
+    # child crossover parent4
+    assert len(parents) > 3
 
-    X = X[do_mutation]
+    order = (np.random.permutation(len(parents))).astype(int).tolist()
 
-    delta1 = (X - xl) / (xu - xl)
-    delta2 = (xu - X) / (xu - xl)
+    p1 = parents[order[0]][1]
+    p2 = parents[order[1]][1]
+    p3 = parents[order[2]][1]
+    p4 = parents[order[3]][1]
 
-    mut_pow = 1.0 / (eta_mut + 1.0)
+    c = uniform_crossover(p1 + F * (p2 - p3), p4, prob_crx)
 
-    rand = np.random.rand(X.shape[0])
-    mask = rand <= 0.5
-    mask_not = np.logical_not(mask)
+    # bounce back if you want weights to be between bounds
 
-    deltaq = np.zeros(X.shape)
-
-    xy = 1.0 - delta1
-    val = 2.0 * rand + (1.0 - 2.0 * rand) * (np.power(xy, (eta_mut + 1.0)))
-    d = np.power(val, mut_pow) - 1.0
-    deltaq[mask] = d[mask]
-
-    xy = 1.0 - delta2
-    val = 2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (np.power(xy, (eta_mut + 1.0)))
-    d = 1.0 - (np.power(val, mut_pow))
-    deltaq[mask_not] = d[mask_not]
-
-    # mutated values
-    _Y = X + deltaq * (xu - xl)
-
-    # back in bounds if necessary (floating point issues)
-    _Y[_Y < xl] = xl[_Y < xl]
-    _Y[_Y > xu] = xu[_Y > xu]
-
-    # set the values for output
-    Y[do_mutation] = _Y
-
-    return Y
+    return c, p4
 
 
 def evaluate(pop, train_queue, criterion):
@@ -294,17 +273,14 @@ def main():
     # main loop of evolution
     for gen in range(1, generations + 1):
         sample = random_combination(population, tournament_size)
-        # best from the sample becomes parent
-        tmp = sorted(sample, key=lambda i: i[0])
+        new_weights, target = differential_recombination(sample, scale_factor, p_crx)
 
-        winner, loser = tmp[-1], tmp[0]
-
-        child = [(0, polynomial_mutation(winner[1], prob_mut=p_mut, eta_mut=eta_m))]
+        child = [(0, new_weights)]
         child = evaluate(child, train_loader, criterion)
 
         # replace loser in population with child
         remove_idx = [i for i in range(len(population))
-                      if np.all(population[i][1] == loser[1])][0]
+                      if np.all(population[i][1] == target)][0]
 
         population.pop(remove_idx)
         population += child
