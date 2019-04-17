@@ -5,6 +5,7 @@ ipynb/
 .ipynb
 *.pdf
 *.xlsx
+MNIST*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
