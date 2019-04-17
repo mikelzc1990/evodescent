@@ -175,7 +175,7 @@ def main():
 
     # just for getting the number of trainable parameters
     model = Net()
-    n_params = utils.count_parameters_in_MB(model)
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info("param size = %fMB", n_params)
     del model
 
