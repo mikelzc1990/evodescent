@@ -217,7 +217,7 @@ def infer(elite, valid_queue, criterion):
     with torch.no_grad():
         for step, (inputs, targets) in enumerate(valid_queue):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs, _ = net(inputs)
+            outputs = net(inputs)
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
@@ -306,7 +306,7 @@ def main():
         population += child
         if gen % report_freq == 0:
             elite_idx = np.argmax([x[0] for x in population])
-            logging.info('train acc %04d %f', 0, population[elite_idx][0])
+            logging.info('train acc %04d %f', gen, population[elite_idx][0])
             infer(population[elite_idx], test_loader, criterion)
 
 
