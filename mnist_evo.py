@@ -107,7 +107,21 @@ def random_combination(iterable, sample_size):
     return tuple(pool[i] for i in indices)
 
 
-def load_parameters(model, params_to_load):
+# def load_parameters(model, params_to_load):
+#     lb = 0
+#     for name, param in model.named_parameters():
+#         ub = lb + param.nelement()
+#         layer_size = tuple(param.size())
+#         param.data = (torch.from_numpy(params_to_load[lb:ub].reshape(
+#             layer_size))).type(torch.FloatTensor).to(device)
+#         lb += param.nelement()
+#     assert ub == len(params_to_load)
+#     return
+
+
+# create a model with specified weights
+def create_model(params_to_load):
+    model = Net().to(device)
     lb = 0
     for name, param in model.named_parameters():
         ub = lb + param.nelement()
@@ -116,7 +130,7 @@ def load_parameters(model, params_to_load):
             layer_size))).type(torch.FloatTensor).to(device)
         lb += param.nelement()
     assert ub == len(params_to_load)
-    return
+    return model
 
 
 def polynomial_mutation(X, prob_mut=0.1, eta_mut=30):
@@ -182,8 +196,9 @@ def evaluate(pop, train_queue, criterion):
             inputs, targets = inputs.to(device), targets.to(device)
             # when we move on to next individual in population
             if batch_counter == 0:
-                model = Net().to(device).eval()
-                load_parameters(model, pop[indv_counter][1])
+                # model = Net().to(device).eval()
+                model = create_model(pop[indv_counter][1])
+                model.eval()
                 correct = 0
                 total = 0
             outputs = model(inputs)
@@ -208,8 +223,9 @@ def evaluate(pop, train_queue, criterion):
 
 
 def infer(elite, valid_queue, criterion):
-    net = Net().to(device).eval()
-    load_parameters(net, elite[1])
+    # net = Net().to(device).eval()
+    net = create_model(elite[1])
+    net.eval()
     test_loss = 0
     correct = 0
     total = 0
