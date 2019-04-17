@@ -278,7 +278,7 @@ def main():
         child = [(0, new_weights)]
         child = evaluate(child, train_loader, criterion)
 
-        if child[0] >= parent_crx[0]:
+        if child[0][0] >= parent_crx[0]:
             # replace the crossover parent with child if child has better fitness
             # replace loser in population with child
             remove_idx = [i for i in range(len(population))
