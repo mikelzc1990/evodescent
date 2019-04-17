@@ -122,6 +122,7 @@ def load_parameters(model, params_to_load):
 def polynomial_mutation(X, prob_mut=0.1, eta_mut=30):
     # dynamic bound since the actual bounds for weights are unknown
     # let's assume each mutation cannot mutate the weight beyond +/-20% from current value
+    print(X)
     lb = np.array([0.8 * x if x > 0 else 1.2 * x for x in X])
     ub = np.array([1.2 * x if x > 0 else 0.8 * x for x in X])
 
