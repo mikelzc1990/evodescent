@@ -28,7 +28,7 @@ parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 parser.add_argument('--save', type=str, default='DE', help='experiment name')
 parser.add_argument('--n_batch', type=int, default=5, help='num of batches used to calculate accuracy')
 parser.add_argument('--gens', type=int, default=300, help='num of training epochs')
-parser.add_argument('--learning_rate', type=float, default=0.01, help='init learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='init learning rate')
 parser.add_argument('--min_learning_rate', type=float, default=0.0, help='minimum learning rate')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--weight_decay', type=float, default=3e-4, help='weight decay')
@@ -112,11 +112,10 @@ def random_combination(iterable, sample_size):
 
 
 # create a model with specified weights
-def create_model(individual=None, full_train=False):
+def create_model(individual=None):
     model = Net()
     # we use sgd to learn the classification layer
     # turn off gradients for all other layers
-
     for name, param in model.named_parameters():
         if not ('classifier' in name):
             param.requires_grad = False
@@ -139,10 +138,6 @@ def create_model(individual=None, full_train=False):
         if individual[1]['classifier_weights'] is not None:
             model.classifier.weight.data = individual[1]['classifier_weights']
             model.classifier.bias.data = individual[1]['classifier_bias']
-
-    if full_train:
-        for name, param in model.named_parameters():
-            param.requires_grad = True
 
     return model.to(device)
 
@@ -209,7 +204,7 @@ def evaluate(pop, train_queue, criterion):
 
 
 # Training
-def train(indv, train_queue, criterion, full_train=False):
+def train(indv, train_queue, criterion):
 
     net = create_model(indv)
 
@@ -228,10 +223,9 @@ def train(indv, train_queue, criterion, full_train=False):
     total = 0
 
     for step, (inputs, targets) in enumerate(train_queue):
-        if not full_train:
-            # only update for pre-defined # of epochs
-            if step >= n_batch:
-                break
+        # only update for pre-defined # of epochs
+        if step >= n_batch:
+            break
 
         # scheduler.step()
 
@@ -378,8 +372,6 @@ def main():
 
     elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
-    elite = train(population[elite_idx], train_loader, criterion, full_train=True)
-    infer(elite, test_loader, criterion)
 
 
 if __name__ == '__main__':
