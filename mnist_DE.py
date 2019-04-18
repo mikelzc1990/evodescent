@@ -378,9 +378,9 @@ def main():
 
     elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
-    elite = train(population[elite_idx], train_loader, criterion, full_train=False)
+    elite = train(population[elite_idx], train_loader, criterion, full_train=True)
     infer(elite, test_loader, criterion)
-    
+
 
 if __name__ == '__main__':
     main()
