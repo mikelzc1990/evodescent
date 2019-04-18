@@ -148,7 +148,8 @@ def differential_recombination(parents, F, prob_crx):
     c = uniform_crossover(p1[1] + F * (p2[1] - p3[1]), p4[1], prob_crx)
 
     # bounce back if you want weights to be between bounds
-
+    c[c < -1] = -1
+    c[c > 1] = 1
     return c, p4
 
 
@@ -290,7 +291,8 @@ def main():
 
         if gen % report_freq == 0:
             elite_idx = np.argmax([x[0] for x in population])
-            logging.info('train acc %04d %.2f %f', gen, 100*n_child_survived/gen, population[elite_idx][0])
+            logging.info('train acc %04d %.2f %f', gen, 100*n_child_survived/report_freq, population[elite_idx][0])
+            n_child_survived = 0
 
     elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
