@@ -112,10 +112,11 @@ def random_combination(iterable, sample_size):
 
 
 # create a model with specified weights
-def create_model(individual=None):
+def create_model(individual=None, full_train=False):
     model = Net()
     # we use sgd to learn the classification layer
     # turn off gradients for all other layers
+
     for name, param in model.named_parameters():
         if not ('classifier' in name):
             param.requires_grad = False
@@ -138,6 +139,10 @@ def create_model(individual=None):
         if individual[1]['classifier_weights'] is not None:
             model.classifier.weight.data = individual[1]['classifier_weights']
             model.classifier.bias.data = individual[1]['classifier_bias']
+
+    if full_train:
+        for name, param in model.named_parameters():
+            param.requires_grad = True
 
     return model.to(device)
 
@@ -204,14 +209,10 @@ def evaluate(pop, train_queue, criterion):
 
 
 # Training
-def train(indv, train_queue, criterion):
+def train(indv, train_queue, criterion, full_train=False):
 
     net = create_model(indv)
 
-    # extract parameter for classifier:
-    for name, param in net.named_parameters():
-        if not ('classifier' in name):
-            param.requires_grad = False
     parameters = filter(lambda p: p.requires_grad, net.parameters())
 
     optimizer = optim.SGD(parameters,
@@ -227,9 +228,10 @@ def train(indv, train_queue, criterion):
     total = 0
 
     for step, (inputs, targets) in enumerate(train_queue):
-        # only update for pre-defined # of epochs
-        if step >= n_batch:
-            break
+        if not full_train:
+            # only update for pre-defined # of epochs
+            if step >= n_batch:
+                break
 
         # scheduler.step()
 
@@ -376,7 +378,9 @@ def main():
 
     elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
-
+    elite = train(population[elite_idx], train_loader, criterion, full_train=False)
+    infer(elite, test_loader, criterion)
+    
 
 if __name__ == '__main__':
     main()
