@@ -234,7 +234,6 @@ def train(indv, train_queue, criterion):
         loss = criterion(outputs, targets)
 
         loss.backward()
-        nn.utils.clip_grad_norm_(net.parameters(), args.grad_clip)
 
         optimizer.step()
 
