@@ -179,11 +179,17 @@ def differential_recombination(parents, F, prob_crx):
     p3 = parents[order[2]]
     p4 = parents[order[3]]
 
+    # for NSDE - DE w/ neighborhood search
+    if np.random.rand() < 0.5:
+        F = np.random.normal(0.5, 0.5, 1)
+    else:
+        F = np.random.standard_cauchy(1)
+
     c = uniform_crossover(p1[1]['x'] + F * (p2[1]['x'] - p3[1]['x']), p4[1]['x'], prob_crx)
 
     # bounce back if you want weights to be between bounds
-    c[c < -1] = -1
-    c[c > 1] = 1
+    c[c < -1] = -5
+    c[c > 1] = 5
     return c, p4
 
 
