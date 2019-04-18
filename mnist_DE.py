@@ -179,7 +179,7 @@ def differential_recombination(parents, F, prob_crx):
     p3 = parents[order[2]]
     p4 = parents[order[3]]
 
-    c = uniform_crossover(p1[1] + F * (p2[1] - p3[1]), p4[1], prob_crx)
+    c = uniform_crossover(p1[1]['x'] + F * (p2[1]['x'] - p3[1]['x']), p4[1]['x'], prob_crx)
 
     # bounce back if you want weights to be between bounds
     # c[c < -1] = -1
@@ -254,7 +254,7 @@ def train(indv, train_queue, criterion):
 
 def infer(elite, valid_queue, criterion):
     # net = Net().to(device).eval()
-    net = create_model(elite[1])
+    net = create_model(elite)
     net.eval()
     test_loss = 0
     correct = 0
@@ -340,21 +340,25 @@ def main():
     population = evaluate(population, train_loader, criterion)
     elite_idx = np.argmax([x[0] for x in population])  # find individual w/ highest accuracy
     logging.info('train acc %04d %f', 0, population[elite_idx][0])
-    1/0
+
     n_child_survived = 0
     # main loop of evolution
     for gen in range(1, generations + 1):
         sample = random_combination(population, tournament_size)
         new_weights, parent_crx = differential_recombination(sample, scale_factor, p_crx)
 
-        child = [(0, new_weights)]
+        child = [(0, {
+            'x': new_weights,
+            'classifier_weights': None,
+            'classifier_bias': None,
+        })]
         child = evaluate(child, train_loader, criterion)
 
         if child[0][0] >= parent_crx[0]:
             # replace the crossover parent with child if child has better fitness
             # replace loser in population with child
             remove_idx = [i for i in range(len(population))
-                          if np.all(population[i][1] == parent_crx[1])][0]
+                          if np.all(population[i][1]['x'] == parent_crx[1]['x'])][0]
             population.pop(remove_idx)
             population += child
             n_child_survived += 1
