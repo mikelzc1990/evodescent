@@ -213,7 +213,7 @@ def train(indv, train_queue, criterion):
                           momentum=args.momentum,
                           weight_decay=args.weight_decay)
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, n_batch, eta_min=args.min_learning_rate)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, n_batch, eta_min=args.min_learning_rate)
 
     net.train()
     train_loss = 0
@@ -225,7 +225,7 @@ def train(indv, train_queue, criterion):
         if step >= n_batch:
             break
 
-        scheduler.step()
+        # scheduler.step()
 
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
