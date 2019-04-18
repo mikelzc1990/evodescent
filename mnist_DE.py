@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
-import torch.nn.functional as F
 import torch.optim as optim
+import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 
@@ -17,7 +17,6 @@ import numpy as np
 
 import utils
 
-
 parser = argparse.ArgumentParser(description='PyTorch DE Deep CNN weights training')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--init_channels', type=int, default=8, help='num of init channels')
@@ -27,8 +26,12 @@ parser.add_argument('--p_crx', type=float, default=0.9, help='probability for cr
 parser.add_argument('--scale_factor', type=float, default=0.75, help='scaling factor F for DE')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 parser.add_argument('--save', type=str, default='DE', help='experiment name')
-parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
-
+parser.add_argument('--n_batch', type=int, default=5, help='num of batches used to calculate accuracy')
+parser.add_argument('--gens', type=int, default=300, help='num of training epochs')
+parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
+parser.add_argument('--min_learning_rate', type=float, default=0.0, help='minimum learning rate')
+parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
+parser.add_argument('--weight_decay', type=float, default=3e-4, help='weight decay')
 args = parser.parse_args()
 
 args.save = 'MNIST-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
@@ -36,6 +39,7 @@ utils.create_exp_dir(args.save)
 
 # prepare hyper-parameters
 device = 'cuda'
+# device = 'cpu'
 seed = args.seed
 population_size = args.pop_size
 tournament_size = args.tour_size
@@ -43,10 +47,10 @@ p_crx = args.p_crx
 scale_factor = args.scale_factor
 batch_size = args.batch_size
 # calculate number of batches for each individual
-n_batch = int(50000 / population_size / batch_size)
+n_batch = args.n_batch
 # calculate report frequency
 report_freq = population_size*3
-generations = population_size*3*args.epochs
+generations = args.gens
 
 assert n_batch > 0
 
@@ -67,7 +71,7 @@ class Net(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=init_channels,
                                out_channels=2 * init_channels,
                                kernel_size=3, padding=1, bias=False)
-        self.fc = nn.Linear(in_features=2 * init_channels, out_features=10)
+        self.classifier = nn.Linear(in_features=2 * init_channels, out_features=10)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -89,7 +93,7 @@ class Net(nn.Module):
         x = F.avg_pool2d(x, 8)
         x = x.view(x.size(0), -1)
 
-        return self.fc(x)
+        return self.classifier(x)
 
 
 def random_weights(dim, mu=0., sigma=1.):
@@ -108,17 +112,47 @@ def random_combination(iterable, sample_size):
 
 
 # create a model with specified weights
-def create_model(params_to_load):
-    model = Net().to(device)
-    lb = 0
+def create_model(individual=None):
+    model = Net()
+    # we use sgd to learn the classification layer
+    # turn off gradients for all other layers
     for name, param in model.named_parameters():
-        ub = lb + param.nelement()
-        layer_size = tuple(param.size())
-        param.data = (torch.from_numpy(params_to_load[lb:ub].reshape(
-            layer_size))).type(torch.FloatTensor).to(device)
-        lb += param.nelement()
-    assert ub == len(params_to_load)
-    return model
+        if not ('classifier' in name):
+            param.requires_grad = False
+
+    if individual is not None:
+        # loading parameters
+        # first - we load the parameters optimized by EA
+        params_to_load = individual[1]['x']
+        lb = 0
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                ub = lb + param.nelement()
+                layer_size = tuple(param.size())
+                param.data = (torch.from_numpy(params_to_load[lb:ub].reshape(
+                    layer_size))).type(torch.FloatTensor)
+                lb += param.nelement()
+        assert ub == len(params_to_load)
+
+        # second - we load classifier's weights and bias
+        if individual[1]['classifier_weights'] is not None:
+            model.classifier.weight.data = individual[1]['classifier_weights']
+            model.classifier.bias.data = individual[1]['classifier_bias']
+
+    return model.to(device)
+
+
+# def load_ea_parameters(model, params_to_load):
+#     lb = 0
+#     for name, param in model.named_parameters():
+#         if not param.requires_grad:
+#             ub = lb + param.nelement()
+#             layer_size = tuple(param.size())
+#             param.data = (torch.from_numpy(params_to_load[lb:ub].reshape(
+#                 layer_size))).type(torch.FloatTensor).to(device)
+#             lb += param.nelement()
+#     assert ub == len(params_to_load)
+#     return model
 
 
 def uniform_crossover(p, q, prob_crx):
@@ -148,46 +182,75 @@ def differential_recombination(parents, F, prob_crx):
     c = uniform_crossover(p1[1] + F * (p2[1] - p3[1]), p4[1], prob_crx)
 
     # bounce back if you want weights to be between bounds
-    c[c < -1] = -1
-    c[c > 1] = 1
+    # c[c < -1] = -1
+    # c[c > 1] = 1
     return c, p4
 
 
 def evaluate(pop, train_queue, criterion):
-    # every individual in population will only be evaluated on one mini-batch
-    # assuming mini-batch size = total_num_training_data / population size
-    pop_eval, indv_counter, batch_counter = [], 0, 0
-    with torch.no_grad():
-        for step, (inputs, targets) in enumerate(train_queue):
-            # print('indv id: {}'.format(indv_counter))
-            # print('batch id: {}'.format(batch_counter))
-            inputs, targets = inputs.to(device), targets.to(device)
-            # when we move on to next individual in population
-            if batch_counter == 0:
-                # model = Net().to(device).eval()
-                model = create_model(pop[indv_counter][1])
-                model.eval()
-                correct = 0
-                total = 0
-            outputs = model(inputs)
-            loss = criterion(outputs, targets).item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+    # every individual in population will only be evaluated on a few mini-batch
+    pop_eval = []
 
-            batch_counter += 1
-            if batch_counter > n_batch:
-                # record performance
-                acc = 100. * correct / total
-                pop_eval.append((acc, pop[indv_counter][1]))
-                # reset counter
-                batch_counter = 0
-                indv_counter += 1
-
-            if not (len(pop_eval) < len(pop)):
-                break
+    for p in pop:
+        pop_eval.append(train(p, train_queue, criterion))
 
     return pop_eval
+
+
+# Training
+def train(indv, train_queue, criterion):
+
+    net = create_model(indv)
+
+    # extract parameter for classifier:
+    for name, param in net.named_parameters():
+        if not ('classifier' in name):
+            param.requires_grad = False
+    parameters = filter(lambda p: p.requires_grad, net.parameters())
+
+    optimizer = optim.SGD(parameters,
+                          lr=args.learning_rate,
+                          momentum=args.momentum,
+                          weight_decay=args.weight_decay)
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, n_batch, eta_min=args.min_learning_rate)
+
+    net.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+
+    for step, (inputs, targets) in enumerate(train_queue):
+        # only update for pre-defined # of epochs
+        if step >= n_batch:
+            break
+
+        scheduler.step()
+
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = net(inputs)
+
+        loss = criterion(outputs, targets)
+
+        loss.backward()
+        nn.utils.clip_grad_norm_(net.parameters(), args.grad_clip)
+
+        optimizer.step()
+
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+    # record back-propagation optimized weights
+    indv_evaled = (100.*correct/total, {
+        'x': indv[1]['x'],
+        'classifier_weights': net.classifier.weight.data.cpu(),
+        'classifier_bias': net.classifier.bias.data.cpu()
+    })
+
+    return indv_evaled
 
 
 def infer(elite, valid_queue, criterion):
@@ -251,8 +314,8 @@ def main():
         batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=2)
 
     # just for getting the number of trainable parameters
-    model = Net()
-    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    model = create_model()
+    n_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
     logging.info("param size = %d", n_params)
     del model
 
@@ -263,14 +326,22 @@ def main():
     population = []
     for _ in range(population_size):
         weights = random_weights(n_params, sigma=0.01)
-        # population = [(acc1, weights1), (acc2, weights2), ..., (accN, weightsN)]
-        population.append((0, weights))
+        # dict = {'x': parameters for ea to optimize,
+        #         'classifier_weights': classifier's weights optimized by back-propagation
+        #         'classifier_bias'   : classifier's bias optimized by back-propagation
+        # }
+        # population = [(acc1, dict1), (acc2, dict2), ..., (accN, dictN)]
+        population.append((0, {
+            'x': weights,
+            'classifier_weights': None,
+            'classifier_bias': None,
+        }))
 
     # evaluation
     population = evaluate(population, train_loader, criterion)
     elite_idx = np.argmax([x[0] for x in population])  # find individual w/ highest accuracy
     logging.info('train acc %04d %f', 0, population[elite_idx][0])
-
+    1/0
     n_child_survived = 0
     # main loop of evolution
     for gen in range(1, generations + 1):
@@ -300,3 +371,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # net = Net()
+    # weight = net.classifier.weight.data.cpu().numpy()
+    # weight_new = weight[:]
+    # weight_new = weight_new.flatten()
+    # weight_new = weight_new.reshape(weight.shape)
+    # print(weight.shape)
+    # print(weight_new.shape)
+    # print(weight_new - weight)
