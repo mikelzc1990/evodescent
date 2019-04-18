@@ -292,6 +292,7 @@ def main():
             elite_idx = np.argmax([x[0] for x in population])
             logging.info('train acc %04d %.2f %f', gen, 100*n_child_survived/gen, population[elite_idx][0])
 
+    elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
 
 
