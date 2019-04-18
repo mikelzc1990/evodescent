@@ -182,8 +182,8 @@ def differential_recombination(parents, F, prob_crx):
     c = uniform_crossover(p1[1]['x'] + F * (p2[1]['x'] - p3[1]['x']), p4[1]['x'], prob_crx)
 
     # bounce back if you want weights to be between bounds
-    # c[c < -1] = -1
-    # c[c > 1] = 1
+    c[c < -1] = -1
+    c[c > 1] = 1
     return c, p4
 
 
