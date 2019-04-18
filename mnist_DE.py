@@ -241,14 +241,14 @@ def main():
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
                        ])),
-        batch_size=batch_size, shuffle=True)
+        batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=2)
 
     test_loader = torch.utils.data.DataLoader(
         datasets.MNIST('../data', train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])),
-        batch_size=batch_size, shuffle=False)
+        batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=2)
 
     # just for getting the number of trainable parameters
     model = Net()
