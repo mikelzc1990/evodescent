@@ -327,16 +327,20 @@ def main():
     k = n_params // 10
     mask = np.zeros(n_params)
     mask[np.random.permutation(range(n_params))[0:k]] = 1
+
     population = []
     for _ in range(population_size):
         weights = random_weights(n_params, sigma=0.01)
+        weights_sub = np.zeros(weights.shape)
+        weights_sub[mask] = weights[mask]
+
         # dict = {'x': parameters for ea to optimize,
         #         'classifier_weights': classifier's weights optimized by back-propagation
         #         'classifier_bias'   : classifier's bias optimized by back-propagation
         # }
         # population = [(acc1, dict1), (acc2, dict2), ..., (accN, dictN)]
         population.append((0, {
-            'x': weights,
+            'x': weights_sub,
             'classifier_weights': None,
             'classifier_bias': None,
         }))
@@ -351,9 +355,11 @@ def main():
     for gen in range(1, generations + 1):
         sample = random_combination(population, tournament_size)
         new_weights, parent_crx = differential_recombination(sample, scale_factor, p_crx)
+        weights_sub = np.zeros(new_weights.shape)
+        weights_sub[mask] = new_weights[mask]
 
         child = [(0, {
-            'x': new_weights,
+            'x': weights_sub,
             'classifier_weights': None,
             'classifier_bias': None,
         })]
