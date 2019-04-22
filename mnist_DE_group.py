@@ -325,8 +325,8 @@ def main():
 
     # initialization
     k = n_params // 10
-    mask = np.zeros(n_params)
-    mask[np.random.permutation(range(n_params))[0:k]] = 1
+    mask = np.full(n_params, False)
+    mask[np.random.permutation(range(n_params))[0:k]] = True
 
     population = []
     for _ in range(population_size):
