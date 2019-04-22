@@ -351,7 +351,7 @@ def main():
         mask[np.random.permutation(range(n_params))[0:k]] = True
 
         logging.info('cycle %02d', cycle)
-        logging.info('mask = %d', mask)
+        logging.info('mask = %r', mask)
 
         # main loop of evolution
         for gen in range(1, generations + 1):
