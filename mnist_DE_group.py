@@ -324,23 +324,16 @@ def main():
     criterion.to(device)
 
     # initialization
-    k = n_params // 10
-    mask = np.full(n_params, False)
-    mask[np.random.permutation(range(n_params))[0:k]] = True
-
     population = []
     for _ in range(population_size):
         weights = random_weights(n_params, sigma=0.01)
-        weights_sub = np.zeros(weights.shape)
-        weights_sub[mask] = weights[mask]
-
         # dict = {'x': parameters for ea to optimize,
         #         'classifier_weights': classifier's weights optimized by back-propagation
         #         'classifier_bias'   : classifier's bias optimized by back-propagation
         # }
         # population = [(acc1, dict1), (acc2, dict2), ..., (accN, dictN)]
         population.append((0, {
-            'x': weights_sub,
+            'x': weights,
             'classifier_weights': None,
             'classifier_bias': None,
         }))
@@ -351,33 +344,42 @@ def main():
     logging.info('train acc %04d %f', 0, population[elite_idx][0])
 
     n_child_survived = 0
-    # main loop of evolution
-    for gen in range(1, generations + 1):
-        sample = random_combination(population, tournament_size)
-        new_weights, parent_crx = differential_recombination(sample, scale_factor, p_crx)
-        weights_sub = np.zeros(new_weights.shape)
-        weights_sub[mask] = new_weights[mask]
 
-        child = [(0, {
-            'x': weights_sub,
-            'classifier_weights': None,
-            'classifier_bias': None,
-        })]
-        child = evaluate(child, train_loader, criterion)
+    for cycle in range(10):
+        k = n_params // 10
+        mask = np.full(n_params, False)
+        mask[np.random.permutation(range(n_params))[0:k]] = True
 
-        if child[0][0] >= parent_crx[0]:
-            # replace the crossover parent with child if child has better fitness
-            # replace loser in population with child
-            remove_idx = [i for i in range(len(population))
-                          if np.all(population[i][1]['x'] == parent_crx[1]['x'])][0]
-            population.pop(remove_idx)
-            population += child
-            n_child_survived += 1
+        logging.info('cycle %02d', cycle)
+        logging.info('mask = %d', mask)
 
-        if gen % report_freq == 0:
-            elite_idx = np.argmax([x[0] for x in population])
-            logging.info('train acc %04d %.2f %f', gen, 100*n_child_survived/report_freq, population[elite_idx][0])
-            n_child_survived = 0
+        # main loop of evolution
+        for gen in range(1, generations + 1):
+            sample = random_combination(population, tournament_size)
+            new_weights, parent_crx = differential_recombination(sample, scale_factor, p_crx)
+            weights_sub = np.copy(parent_crx[1]['x'])
+            weights_sub[mask] = new_weights[mask]
+
+            child = [(0, {
+                'x': weights_sub,
+                'classifier_weights': None,
+                'classifier_bias': None,
+            })]
+            child = evaluate(child, train_loader, criterion)
+
+            if child[0][0] >= parent_crx[0]:
+                # replace the crossover parent with child if child has better fitness
+                # replace loser in population with child
+                remove_idx = [i for i in range(len(population))
+                              if np.all(population[i][1]['x'] == parent_crx[1]['x'])][0]
+                population.pop(remove_idx)
+                population += child
+                n_child_survived += 1
+
+            if gen % report_freq == 0:
+                elite_idx = np.argmax([x[0] for x in population])
+                logging.info('train acc %04d %.2f %f', gen, 100*n_child_survived/report_freq, population[elite_idx][0])
+                n_child_survived = 0
 
     elite_idx = np.argmax([x[0] for x in population])
     infer(population[elite_idx], test_loader, criterion)
