@@ -28,6 +28,7 @@ parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 parser.add_argument('--save', type=str, default='DE-group', help='experiment name')
 parser.add_argument('--n_batch', type=int, default=5, help='num of batches used to calculate accuracy')
 parser.add_argument('--gens', type=int, default=300, help='num of training epochs')
+parser.add_argument('--cycles', type=int, default=100, help='num of training epochs')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='init learning rate')
 parser.add_argument('--min_learning_rate', type=float, default=0.0, help='minimum learning rate')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -51,6 +52,7 @@ n_batch = args.n_batch
 # calculate report frequency
 report_freq = population_size*3
 generations = args.gens
+cycles = args.cycles
 
 assert n_batch > 0
 
@@ -345,10 +347,11 @@ def main():
 
     n_child_survived = 0
 
-    for cycle in range(10):
-        k = n_params // 10
+    for cycle in cycles:
+        k = n_params // 20
         mask = np.full(n_params, False)
-        mask[np.random.permutation(range(n_params))[0:k]] = True
+        indices = np.random.permutation(range(n_params))[0:k]
+        mask[indices] = True
 
         logging.info('cycle %02d', cycle)
         logging.info('mask = %r', mask)
