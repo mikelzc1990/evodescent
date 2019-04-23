@@ -354,7 +354,7 @@ def main():
         mask[indices] = True
 
         logging.info('cycle %02d', cycle)
-        logging.info('mask = %r', mask)
+        logging.info('mask = %r', indices)
 
         # main loop of evolution
         for gen in range(1, generations + 1):
