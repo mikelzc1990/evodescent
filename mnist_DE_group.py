@@ -347,7 +347,7 @@ def main():
 
     n_child_survived = 0
 
-    for cycle in cycles:
+    for cycle in range(cycles):
         k = n_params // 20
         mask = np.full(n_params, False)
         indices = np.random.permutation(range(n_params))[0:k]
